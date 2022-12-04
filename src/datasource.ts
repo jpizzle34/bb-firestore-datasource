@@ -1,79 +1,198 @@
-import { IntegrationBase } from "@budibase/types"
-import fetch from "node-fetch"
+import {
+	DatasourceFieldType as DatasourceFieldTypes,
+	Integration,
+	QueryType as QueryTypes,
+	IntegrationBase,
+} from "@budibase/types";
+// import { IntegrationBase } from "./base/IntegrationBase";
+import { Firestore, WhereFilterOp } from "@google-cloud/firestore";
 
-interface Query {
-  method: string
-  body?: string
-  headers?: { [key: string]: string }
+interface FirebaseConfig {
+	email: string;
+	privateKey: string;
+	projectId: string;
 }
+
+const SCHEMA: Integration = {
+	docs: "https://firebase.google.com/docs/firestore/quickstart",
+	friendlyName: "Firestore",
+	type: "Non-relational",
+	description:
+		"Cloud Firestore is a flexible, scalable database for mobile, web, and server development from Firebase and Google Cloud.",
+	datasource: {
+		email: {
+			type: DatasourceFieldTypes.STRING,
+			required: true,
+		},
+		privateKey: {
+			type: DatasourceFieldTypes.STRING,
+			required: true,
+		},
+		projectId: {
+			type: DatasourceFieldTypes.STRING,
+			required: true,
+		},
+	},
+	query: {
+		create: {
+			type: QueryTypes.JSON,
+		},
+		read: {
+			type: QueryTypes.JSON,
+		},
+		update: {
+			type: QueryTypes.JSON,
+		},
+		delete: {
+			type: QueryTypes.JSON,
+		},
+	},
+	extra: {
+		collection: {
+			displayName: "Collection",
+			type: DatasourceFieldTypes.STRING,
+			required: true,
+		},
+		filterField: {
+			displayName: "Filter field",
+			type: DatasourceFieldTypes.STRING,
+			required: false,
+		},
+		filter: {
+			displayName: "Filter comparison",
+			type: DatasourceFieldTypes.LIST,
+			required: false,
+			data: {
+				read: [
+					"==",
+					"<",
+					"<=",
+					"!=",
+					">=",
+					">",
+					"array-contains",
+					"in",
+					"not-in",
+					"array-contains-any",
+				],
+			},
+		},
+		filterValue: {
+			displayName: "Filter value",
+			type: DatasourceFieldTypes.STRING,
+			required: false,
+		},
+	},
+};
 
 class CustomIntegration implements IntegrationBase {
-  private readonly url: string
-  private readonly cookie: string
+	private config: FirebaseConfig;
+	private client: Firestore;
 
-  constructor(config: { url: string; cookie: string }) {
-    this.url = config.url
-    this.cookie = config.cookie
-  }
+	constructor(config: FirebaseConfig) {
+		this.config = config;
+		this.client = new Firestore({
+			projectId: config.projectId,
+			credentials: {
+				client_email: config.email,
+				private_key: config.privateKey?.replace(/\\n/g, "\n"),
+			},
+		});
+	}
 
-  async request(url: string, opts: Query) {
-    if (this.cookie) {
-      const cookie = { Cookie: this.cookie }
-      opts.headers = opts.headers ? { ...opts.headers, ...cookie } : cookie
-    }
-    const response = await fetch(url, opts)
-    if (response.status <= 300) {
-      try {
-        const contentType = response.headers.get("content-type")
-        if (contentType?.includes("json")) {
-          return await response.json()
-        } else {
-          return await response.text()
-        }
-      } catch (err) {
-        return await response.text()
-      }
-    } else {
-      const err = await response.text()
-      throw new Error(err)
-    }
-  }
+	async create(query: { json: object; extra: { [key: string]: string } }) {
+		try {
+			const documentReference = this.client
+				.collection(query.extra.collection)
+				.doc();
+			await documentReference.set({
+				...query.json,
+				id: documentReference.id,
+			});
+			const snapshot = await documentReference.get();
+			return snapshot.data();
+		} catch (err) {
+			console.error("Error writing to Firestore", err);
+			throw err;
+		}
+	}
 
-  async create(query: { json: object }) {
-    const opts = {
-      method: "POST",
-      body: JSON.stringify(query.json),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }
-    return this.request(this.url, opts)
-  }
+	async read(query: { json: object; extra: { [key: string]: string } }) {
+		try {
+			let snapshot;
+			const collectionRef = this.client.collection(
+				query.extra.collection
+			);
+			if (
+				query.extra.filterField &&
+				query.extra.filter &&
+				query.extra.filterValue
+			) {
+				snapshot = await collectionRef
+					.where(
+						query.extra.filterField,
+						query.extra.filter as WhereFilterOp,
+						query.extra.filterValue
+					)
+					.get();
+			} else {
+				snapshot = await collectionRef.get();
+			}
+			const result: any[] = [];
+			snapshot.forEach((doc) => result.push(doc.data()));
 
-  async read(query: { queryString: string }) {
-    const opts = {
-      method: "GET",
-    }
-    return this.request(`${this.url}?${query.queryString}`, opts)
-  }
+			return result;
+		} catch (err) {
+			console.error("Error querying Firestore", err);
+			throw err;
+		}
+	}
 
-  async update(query: { json: object }) {
-    const opts = {
-      method: "PUT",
-      body: JSON.stringify(query.json),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }
-    return this.request(this.url, opts)
-  }
+	async update(query: {
+		json: Record<string, any>;
+		extra: { [key: string]: string };
+	}) {
+		try {
+			await this.client
+				.collection(query.extra.collection)
+				.doc(query.json.id)
+				.update(query.json);
 
-  async delete(query: { id: string }) {
-    const opts = {
-      method: "DELETE",
-    }
-    return this.request(`${this.url}/${query.id}`, opts)
-  }
+			return (
+				await this.client
+					.collection(query.extra.collection)
+					.doc(query.json.id)
+					.get()
+			).data();
+		} catch (err) {
+			console.error("Error writing to Firestore", err);
+			throw err;
+		}
+	}
+
+	async delete(query: {
+		json: { id: string };
+		extra: { [key: string]: string };
+	}) {
+		try {
+			await this.client
+				.collection(query.extra.collection)
+				.doc(query.json.id)
+				.delete();
+			return true;
+		} catch (err) {
+			console.error("Error deleting from Firestore", err);
+			throw err;
+		}
+	}
 }
 
-export default CustomIntegration
+// module.exports = {
+// 	schema: SCHEMA,
+// 	integration: FirebaseIntegration,
+// };
+
+export default {
+	SCHEMA,
+	CustomIntegration,
+};

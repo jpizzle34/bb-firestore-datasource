@@ -1,47 +1,74 @@
 {
-  "type": "datasource",
-  "metadata": {},
-  "schema": {
-    "docs": "https://docs.budibase.com",
-    "friendlyName": "Basic HTTP",
-    "type": "API",
-    "description": "Performs a basic HTTP calls to a URL",
-    "datasource": {
-      "url": {
-        "type": "string",
-        "required": true
-      },
-      "cookie": {
-        "type": "string",
-        "required": false
-      }
-    },
-    "query": {
-      "create": {
-        "type": "json"
-      },
-      "read": {
-        "type": "fields",
-        "fields": {
-          "queryString": {
-            "display": "Query string",
-            "type": "string",
-            "required": false
-          }
-        }
-      },
-      "update": {
-        "type": "json"
-      },
-      "delete": {
-        "type": "fields",
-        "fields": {
-          "id": {
-            "type": "string",
-            "required": true
-          }
-        }
-      }
-    }
-  }
+	"type": "datasource",
+	"metadata": {},
+	"schema": {
+		"docs": "https://firebase.google.com/docs/firestore/quickstart",
+		"friendlyName": "Firestore (Enhanced)",
+		"type": "Non-relational",
+		"description": "Cloud Firestore is a flexible, scalable database for mobile, web, and server development from Firebase and Google Cloud.",
+		"datasource": {
+			"email": {
+				"type": "string",
+				"required": true
+			},
+			"privateKey": {
+				"type": "string",
+				"required": true
+			},
+			"projectId": {
+				"type": "string",
+				"required": true
+			}
+		},
+		"query": {
+			"create": {
+				"type": "json"
+			},
+			"read": {
+				"type": "json"
+			},
+			"update": {
+				"type": "json"
+			},
+			"delete": {
+				"type": "json"
+			}
+		},
+		"extra": {
+			"collection": {
+				"displayName": "Collection",
+				"type": "string",
+				"required": true
+			},
+			"filterField": {
+				"displayName": "Filter field",
+				"type": "string",
+				"required": false
+			},
+			"filter": {
+				"displayName": "Filter comparison",
+				"type": "list",
+				"required": false,
+				"data": {
+					"read": [
+						"==",
+						"<",
+						"<=",
+						"!=",
+						">=",
+						">",
+						"array-contains",
+						"in",
+						"not-in",
+						"array-contains-any"
+					]
+				}
+			},
+			"filterValue": {
+				"displayName": "Filter value",
+				"type": "string",
+				"required": false
+			}
+		}
+	}
 }
