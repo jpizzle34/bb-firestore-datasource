@@ -1,10 +1,5 @@
-import {
-	DatasourceFieldType as DatasourceFieldTypes,
-	Integration,
-	QueryType as QueryTypes,
-	IntegrationBase,
-} from "@budibase/types";
-// import { IntegrationBase } from "./base/IntegrationBase";
+import { IntegrationBase } from "@budibase/types";
+
 import { Firestore, WhereFilterOp } from "@google-cloud/firestore";
 
 interface FirebaseConfig {
@@ -13,78 +8,6 @@ interface FirebaseConfig {
 	projectId: string;
 }
 
-const SCHEMA: Integration = {
-	docs: "https://firebase.google.com/docs/firestore/quickstart",
-	friendlyName: "Firestore",
-	type: "Non-relational",
-	description:
-		"Cloud Firestore is a flexible, scalable database for mobile, web, and server development from Firebase and Google Cloud.",
-	datasource: {
-		email: {
-			type: DatasourceFieldTypes.STRING,
-			required: true,
-		},
-		privateKey: {
-			type: DatasourceFieldTypes.STRING,
-			required: true,
-		},
-		projectId: {
-			type: DatasourceFieldTypes.STRING,
-			required: true,
-		},
-	},
-	query: {
-		create: {
-			type: QueryTypes.JSON,
-		},
-		read: {
-			type: QueryTypes.JSON,
-		},
-		update: {
-			type: QueryTypes.JSON,
-		},
-		delete: {
-			type: QueryTypes.JSON,
-		},
-	},
-	extra: {
-		collection: {
-			displayName: "Collection",
-			type: DatasourceFieldTypes.STRING,
-			required: true,
-		},
-		filterField: {
-			displayName: "Filter field",
-			type: DatasourceFieldTypes.STRING,
-			required: false,
-		},
-		filter: {
-			displayName: "Filter comparison",
-			type: DatasourceFieldTypes.LIST,
-			required: false,
-			data: {
-				read: [
-					"==",
-					"<",
-					"<=",
-					"!=",
-					">=",
-					">",
-					"array-contains",
-					"in",
-					"not-in",
-					"array-contains-any",
-				],
-			},
-		},
-		filterValue: {
-			displayName: "Filter value",
-			type: DatasourceFieldTypes.STRING,
-			required: false,
-		},
-	},
-};
-
 class CustomIntegration implements IntegrationBase {
 	private config: FirebaseConfig;
 	private client: Firestore;
@@ -92,10 +15,10 @@ class CustomIntegration implements IntegrationBase {
 	constructor(config: FirebaseConfig) {
 		this.config = config;
 		this.client = new Firestore({
-			projectId: config.projectId,
+			projectId: this.config.projectId,
 			credentials: {
-				client_email: config.email,
-				private_key: config.privateKey?.replace(/\\n/g, "\n"),
+				client_email: this.config.email,
+				private_key: this.config.privateKey?.replace(/\\n/g, "\n"),
 			},
 		});
 	}
@@ -187,12 +110,4 @@ class CustomIntegration implements IntegrationBase {
 	}
 }
 
-// module.exports = {
-// 	schema: SCHEMA,
-// 	integration: FirebaseIntegration,
-// };
-
-export default {
-	SCHEMA,
-	CustomIntegration,
-};
+export default CustomIntegration;
